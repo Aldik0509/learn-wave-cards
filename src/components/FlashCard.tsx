@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -7,6 +6,7 @@ export interface FlashCardData {
   question: string;
   answer: string;
   image?: string;
+  grade?: number;
 }
 
 interface FlashCardProps {
