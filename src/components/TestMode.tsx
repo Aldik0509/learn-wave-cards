@@ -2,10 +2,16 @@
 import { useState, useEffect } from 'react';
 import { FlashCardData } from './FlashCard';
 import { toast } from 'sonner';
-import { CheckCheck, CircleX } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
 
 interface TestModeProps {
   cards: FlashCardData[];
+}
+
+interface AnswerOption {
+  value: string;
+  label: string;
 }
 
 const TestMode = ({ cards }: TestModeProps) => {
@@ -14,31 +20,54 @@ const TestMode = ({ cards }: TestModeProps) => {
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
   const [testCards, setTestCards] = useState<FlashCardData[]>([]);
+  const [answerOptions, setAnswerOptions] = useState<AnswerOption[]>([]);
 
   useEffect(() => {
-    // Перемешиваем карточки для теста
     const shuffled = [...cards].sort(() => Math.random() - 0.5);
     setTestCards(shuffled);
     setUserAnswers(Array(cards.length).fill(''));
     setShowResults(false);
     setCurrentQuestionIndex(0);
     setScore(0);
+    generateAnswerOptions(shuffled[0]);
   }, [cards]);
 
-  const handleAnswerChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const generateAnswerOptions = (currentCard: FlashCardData) => {
+    // Получаем 3 случайные неправильные ответа из других карточек
+    const otherAnswers = cards
+      .filter(card => card.id !== currentCard.id)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3)
+      .map(card => card.answer);
+
+    // Создаем массив вариантов ответов, включая правильный
+    const options = [
+      { value: currentCard.answer, label: currentCard.answer },
+      ...otherAnswers.map(answer => ({ value: answer, label: answer }))
+    ];
+
+    // Перемешиваем варианты ответов
+    setAnswerOptions(options.sort(() => Math.random() - 0.5));
+  };
+
+  const handleAnswerChange = (value: string) => {
     const newAnswers = [...userAnswers];
-    newAnswers[currentQuestionIndex] = e.target.value;
+    newAnswers[currentQuestionIndex] = value;
     setUserAnswers(newAnswers);
   };
 
   const handleSubmitAnswer = () => {
     if (!userAnswers[currentQuestionIndex]) {
-      toast.error('Пожалуйста, введите ответ');
+      toast.error('Пожалуйста, выберите ответ');
       return;
     }
 
     if (currentQuestionIndex < testCards.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
+      setCurrentQuestionIndex(prev => {
+        const nextIndex = prev + 1;
+        generateAnswerOptions(testCards[nextIndex]);
+        return nextIndex;
+      });
     } else {
       calculateScore();
       setShowResults(true);
@@ -48,16 +77,10 @@ const TestMode = ({ cards }: TestModeProps) => {
   const calculateScore = () => {
     let correctAnswers = 0;
     testCards.forEach((card, index) => {
-      const userAnswer = userAnswers[index].toLowerCase().trim();
-      const correctAnswer = card.answer.toLowerCase();
-      
-      // Простая проверка на схожесть ответа с правильным ответом
-      if (correctAnswer.includes(userAnswer) || userAnswer.includes(correctAnswer) || 
-          userAnswer.length > 3 && correctAnswer.includes(userAnswer.substring(0, userAnswer.length - 1))) {
+      if (userAnswers[index] === card.answer) {
         correctAnswers++;
       }
     });
-    
     setScore(correctAnswers);
   };
 
@@ -68,6 +91,7 @@ const TestMode = ({ cards }: TestModeProps) => {
     setShowResults(false);
     setCurrentQuestionIndex(0);
     setScore(0);
+    generateAnswerOptions(shuffled[0]);
   };
 
   if (showResults) {
@@ -128,16 +152,27 @@ const TestMode = ({ cards }: TestModeProps) => {
           </div>
         )}
         
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Ваш ответ:
-          </label>
-          <textarea
+        <div className="mt-6 space-y-4">
+          <RadioGroup
             value={userAnswers[currentQuestionIndex]}
-            onChange={handleAnswerChange}
-            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-physics-indigo"
-            rows={3}
-          />
+            onValueChange={handleAnswerChange}
+          >
+            {answerOptions.map((option, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <RadioGroupItem
+                  value={option.value}
+                  id={`option-${index}`}
+                  className="border-2 border-physics-purple/50"
+                />
+                <Label
+                  htmlFor={`option-${index}`}
+                  className="text-lg font-medium cursor-pointer"
+                >
+                  {option.label}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
         </div>
         
         <button
