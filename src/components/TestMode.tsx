@@ -25,6 +25,7 @@ const TestMode = ({ cards }: TestModeProps) => {
   const [answerOptions, setAnswerOptions] = useState<AnswerOption[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [feedbackState, setFeedbackState] = useState<'correct' | 'incorrect' | null>(null);
+  const [isAnswerVerified, setIsAnswerVerified] = useState(false);
   
   useEffect(() => {
     const shuffled = [...cards].sort(() => Math.random() - 0.5);
@@ -35,6 +36,7 @@ const TestMode = ({ cards }: TestModeProps) => {
     setScore(0);
     setSelectedAnswer(null);
     setFeedbackState(null);
+    setIsAnswerVerified(false);
     if (shuffled.length > 0) {
       generateAnswerOptions(shuffled[0]);
     }
@@ -74,25 +76,31 @@ const TestMode = ({ cards }: TestModeProps) => {
 
   const handleAnswerChange = (value: string) => {
     setSelectedAnswer(value);
-    
-    // Check if answer is correct
-    const currentCard = testCards[currentQuestionIndex];
-    if (value === currentCard.answer) {
-      setFeedbackState('correct');
-    } else {
-      setFeedbackState('incorrect');
-    }
+    // Remove immediate feedback
+    setFeedbackState(null);
   };
 
-  const handleSubmitAnswer = () => {
+  const handleVerifyAnswer = () => {
     if (!selectedAnswer) {
       toast.error('Пожалуйста, выберите ответ');
       return;
     }
 
+    // Check if answer is correct and show feedback
+    const currentCard = testCards[currentQuestionIndex];
+    if (selectedAnswer === currentCard.answer) {
+      setFeedbackState('correct');
+    } else {
+      setFeedbackState('incorrect');
+    }
+    
+    setIsAnswerVerified(true);
+  };
+  
+  const handleNextQuestion = () => {
     // Save the answer
     const newAnswers = [...userAnswers];
-    newAnswers[currentQuestionIndex] = selectedAnswer;
+    newAnswers[currentQuestionIndex] = selectedAnswer || '';
     setUserAnswers(newAnswers);
     
     // Update score if answer was correct
@@ -109,6 +117,7 @@ const TestMode = ({ cards }: TestModeProps) => {
       });
       setSelectedAnswer(null);
       setFeedbackState(null);
+      setIsAnswerVerified(false);
     } else {
       setShowResults(true);
     }
@@ -133,6 +142,7 @@ const TestMode = ({ cards }: TestModeProps) => {
     setScore(0);
     setSelectedAnswer(null);
     setFeedbackState(null);
+    setIsAnswerVerified(false);
     generateAnswerOptions(shuffled[0]);
   };
 
@@ -202,19 +212,23 @@ const TestMode = ({ cards }: TestModeProps) => {
           <RadioGroup
             value={selectedAnswer || ""}
             onValueChange={handleAnswerChange}
+            disabled={isAnswerVerified}
           >
             {answerOptions.map((option, index) => (
               <div key={index} className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${
-                selectedAnswer === option.value && feedbackState === 'correct' 
+                isAnswerVerified && selectedAnswer === option.value && feedbackState === 'correct' 
                   ? 'bg-[#F2FCE2] border border-green-400' 
-                  : selectedAnswer === option.value && feedbackState === 'incorrect'
+                  : isAnswerVerified && selectedAnswer === option.value && feedbackState === 'incorrect'
                   ? 'bg-red-50 border border-red-400'
+                  : isAnswerVerified && option.value === currentCard.answer
+                  ? 'bg-[#F2FCE2] border border-green-400'
                   : 'hover:bg-gray-50'
               }`}>
                 <RadioGroupItem
                   value={option.value}
                   id={`option-${index}`}
                   className="border-2 border-physics-purple/50"
+                  disabled={isAnswerVerified}
                 />
                 <Label
                   htmlFor={`option-${index}`}
@@ -223,11 +237,12 @@ const TestMode = ({ cards }: TestModeProps) => {
                   {option.label}
                 </Label>
                 
-                {selectedAnswer === option.value && feedbackState === 'correct' && (
+                {isAnswerVerified && ((selectedAnswer === option.value && feedbackState === 'correct') || 
+                 (option.value === currentCard.answer && selectedAnswer !== option.value)) && (
                   <Check size={20} className="text-green-500 shrink-0" />
                 )}
                 
-                {selectedAnswer === option.value && feedbackState === 'incorrect' && (
+                {isAnswerVerified && selectedAnswer === option.value && feedbackState === 'incorrect' && (
                   <X size={20} className="text-[#ea384c] shrink-0" />
                 )}
               </div>
@@ -236,13 +251,16 @@ const TestMode = ({ cards }: TestModeProps) => {
         </div>
         
         <button
-          onClick={handleSubmitAnswer}
+          onClick={isAnswerVerified ? handleNextQuestion : handleVerifyAnswer}
           className={`w-full mt-6 py-3 text-white rounded-md hover:bg-physics-indigo transition-colors ${
-            feedbackState === 'correct' ? 'bg-green-500' : 
-            feedbackState === 'incorrect' ? 'bg-[#ea384c]' : 'bg-physics-purple'
+            isAnswerVerified && feedbackState === 'correct' ? 'bg-green-500' : 
+            isAnswerVerified && feedbackState === 'incorrect' ? 'bg-[#ea384c]' : 'bg-physics-purple'
           }`}
+          disabled={!selectedAnswer && !isAnswerVerified}
         >
-          {currentQuestionIndex < testCards.length - 1 ? "Следующий вопрос" : "Завершить тест"}
+          {isAnswerVerified 
+            ? (currentQuestionIndex < testCards.length - 1 ? "Следующий вопрос" : "Завершить тест") 
+            : "Проверить"}
         </button>
       </div>
     </div>

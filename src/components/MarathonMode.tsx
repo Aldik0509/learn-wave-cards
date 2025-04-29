@@ -19,6 +19,7 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [feedbackState, setFeedbackState] = useState<'correct' | 'incorrect' | null>(null);
+  const [isAnswerVerified, setIsAnswerVerified] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,10 +47,10 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
 
   useEffect(() => {
     // Фокус на поле ввода при изменении текущей карточки
-    if (inputRef.current && isPlaying) {
+    if (inputRef.current && isPlaying && !isAnswerVerified) {
       inputRef.current.focus();
     }
-  }, [currentCardIndex, isPlaying]);
+  }, [currentCardIndex, isPlaying, isAnswerVerified]);
 
   const resetMarathon = () => {
     const shuffled = [...cards].sort(() => Math.random() - 0.5);
@@ -61,6 +62,7 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
     setIsPlaying(false);
     setGameOver(false);
     setFeedbackState(null);
+    setIsAnswerVerified(false);
   };
 
   const startGame = () => {
@@ -68,7 +70,7 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
     setIsPlaying(true);
   };
 
-  const checkAnswer = () => {
+  const verifyAnswer = () => {
     if (!userAnswer.trim()) return;
 
     const currentCard = marathonCards[currentCardIndex];
@@ -81,31 +83,32 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
                      (userAnswerLower.length > 3 && correctAnswerLower.includes(userAnswerLower.substring(0, userAnswerLower.length - 1)));
     
     setFeedbackState(isCorrect ? 'correct' : 'incorrect');
-    
-    // Задержка перед переходом к следующей карточке для отображения обратной связи
-    setTimeout(() => {
-      if (isCorrect) {
-        setScore((prev) => prev + 1);
-      }
+    setIsAnswerVerified(true);
+  };
   
-      // Переходим к следующей карточке или перемешиваем, если закончились
-      if (currentCardIndex < marathonCards.length - 1) {
-        setCurrentCardIndex((prev) => prev + 1);
-      } else {
-        // Перемешиваем карточки и начинаем заново
-        const shuffled = [...cards].sort(() => Math.random() - 0.5);
-        setMarathonCards(shuffled);
-        setCurrentCardIndex(0);
-      }
-      
-      setUserAnswer('');
-      setFeedbackState(null);
-    }, 1000);
+  const handleNextQuestion = () => {
+    if (feedbackState === 'correct') {
+      setScore((prev) => prev + 1);
+    }
+    
+    // Переходим к следующей карточке или перемешиваем, если закончились
+    if (currentCardIndex < marathonCards.length - 1) {
+      setCurrentCardIndex((prev) => prev + 1);
+    } else {
+      // Перемешиваем карточки и начинаем заново
+      const shuffled = [...cards].sort(() => Math.random() - 0.5);
+      setMarathonCards(shuffled);
+      setCurrentCardIndex(0);
+    }
+    
+    setUserAnswer('');
+    setFeedbackState(null);
+    setIsAnswerVerified(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      checkAnswer();
+    if (e.key === 'Enter' && !isAnswerVerified) {
+      verifyAnswer();
     }
   };
 
@@ -193,24 +196,24 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
                   onChange={(e) => setUserAnswer(e.target.value)}
                   onKeyDown={handleKeyDown}
                   className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                    feedbackState === 'correct' 
+                    isAnswerVerified && feedbackState === 'correct' 
                       ? 'bg-[#F2FCE2] border-green-400 focus:ring-green-400' 
-                      : feedbackState === 'incorrect'
+                      : isAnswerVerified && feedbackState === 'incorrect'
                       ? 'bg-red-50 border-red-400 focus:ring-red-400'
                       : 'border-gray-300 focus:ring-physics-indigo'
                   }`}
                   placeholder="Введите ответ..."
-                  disabled={feedbackState !== null}
+                  disabled={isAnswerVerified}
                 />
-                {feedbackState === 'correct' && (
+                {isAnswerVerified && feedbackState === 'correct' && (
                   <Check size={20} className="absolute right-3 top-3 text-green-500" />
                 )}
-                {feedbackState === 'incorrect' && (
+                {isAnswerVerified && feedbackState === 'incorrect' && (
                   <X size={20} className="absolute right-3 top-3 text-[#ea384c]" />
                 )}
               </div>
               
-              {feedbackState === 'incorrect' && (
+              {isAnswerVerified && feedbackState === 'incorrect' && (
                 <p className="text-sm text-[#ea384c] mt-2">
                   Правильный ответ: <span className="font-semibold">{currentCard.answer}</span>
                 </p>
@@ -218,15 +221,14 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
             </div>
             
             <button
-              onClick={checkAnswer}
+              onClick={isAnswerVerified ? handleNextQuestion : verifyAnswer}
               className={`w-full mt-4 py-3 text-white rounded-md hover:opacity-90 transition-colors ${
-                feedbackState === 'correct' ? 'bg-green-500' : 
-                feedbackState === 'incorrect' ? 'bg-[#ea384c]' : 'bg-physics-cyan hover:bg-physics-blue'
+                isAnswerVerified && feedbackState === 'correct' ? 'bg-green-500' : 
+                isAnswerVerified && feedbackState === 'incorrect' ? 'bg-[#ea384c]' : 'bg-physics-cyan hover:bg-physics-blue'
               }`}
-              disabled={!userAnswer.trim() || feedbackState !== null}
+              disabled={!userAnswer.trim() && !isAnswerVerified}
             >
-              {feedbackState === null ? "Ответить" : 
-               feedbackState === 'correct' ? "Правильно!" : "Неправильно"}
+              {isAnswerVerified ? "Следующий вопрос" : "Проверить"}
             </button>
           </div>
         </div>
