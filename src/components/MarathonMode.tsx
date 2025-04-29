@@ -3,23 +3,34 @@ import { useState, useEffect, useRef } from 'react';
 import { FlashCardData } from './FlashCard';
 import { Timer, Star, Trophy, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 interface MarathonModeProps {
   cards: FlashCardData[];
 }
 
+interface AnswerOption {
+  value: string;
+  label: string;
+  isFormula?: boolean;
+}
+
 const INITIAL_TIME = 60; // 60 секунд на марафон
+const TIME_PENALTY = 3; // штраф за неправильный ответ
+const TIME_BONUS = 2; // бонус за правильный ответ
 
 const MarathonMode = ({ cards }: MarathonModeProps) => {
   const [marathonCards, setMarathonCards] = useState<FlashCardData[]>([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [userAnswer, setUserAnswer] = useState('');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(INITIAL_TIME);
   const [isPlaying, setIsPlaying] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [feedbackState, setFeedbackState] = useState<'correct' | 'incorrect' | null>(null);
   const [isAnswerVerified, setIsAnswerVerified] = useState(false);
+  const [answerOptions, setAnswerOptions] = useState<AnswerOption[]>([]);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -34,7 +45,7 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
       timer = setInterval(() => {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
-    } else if (isPlaying && timeLeft === 0) {
+    } else if (isPlaying && timeLeft <= 0) {
       setGameOver(true);
       setIsPlaying(false);
       toast.info("Время вышло!");
@@ -52,17 +63,53 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
     }
   }, [currentCardIndex, isPlaying, isAnswerVerified]);
 
+  const isFormulaAnswer = (answer: string): boolean => {
+    // Check if the answer contains mathematical symbols or notation
+    return /[\+\-\*\/\=\(\)\[\]\{\}\^\d√∫∑π]/.test(answer) && 
+           (/[a-zA-Z]/.test(answer) || answer.includes('=')) &&
+           (answer.includes('=') || answer.includes('/') || answer.includes('^') || answer.includes('√'));
+  };
+
+  const generateAnswerOptions = (currentCard: FlashCardData) => {
+    // Determine if the correct answer is a formula
+    const isFormula = isFormulaAnswer(currentCard.answer);
+    
+    // Get 3 random incorrect answers from other cards
+    const otherAnswers = cards
+      .filter(card => card.id !== currentCard.id)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3)
+      .map(card => ({
+        value: card.answer,
+        label: card.answer,
+        isFormula: isFormulaAnswer(card.answer)
+      }));
+
+    // Create array of options including the correct one
+    const options = [
+      { value: currentCard.answer, label: currentCard.answer, isFormula },
+      ...otherAnswers
+    ];
+
+    // Shuffle options
+    setAnswerOptions(options.sort(() => Math.random() - 0.5));
+  };
+
   const resetMarathon = () => {
     const shuffled = [...cards].sort(() => Math.random() - 0.5);
     setMarathonCards(shuffled);
     setCurrentCardIndex(0);
-    setUserAnswer('');
+    setSelectedAnswer(null);
     setScore(0);
     setTimeLeft(INITIAL_TIME);
     setIsPlaying(false);
     setGameOver(false);
     setFeedbackState(null);
     setIsAnswerVerified(false);
+    
+    if (shuffled.length > 0) {
+      generateAnswerOptions(shuffled[0]);
+    }
   };
 
   const startGame = () => {
@@ -70,20 +117,32 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
     setIsPlaying(true);
   };
 
+  const handleAnswerChange = (value: string) => {
+    setSelectedAnswer(value);
+    // Remove immediate feedback
+    setFeedbackState(null);
+  };
+
   const verifyAnswer = () => {
-    if (!userAnswer.trim()) return;
+    if (!selectedAnswer) {
+      toast.error('Пожалуйста, выберите ответ');
+      return;
+    }
 
     const currentCard = marathonCards[currentCardIndex];
-    const userAnswerLower = userAnswer.toLowerCase().trim();
-    const correctAnswerLower = currentCard.answer.toLowerCase();
-
-    // Проверяем ответ (с некоторой гибкостью)
-    const isCorrect = correctAnswerLower.includes(userAnswerLower) || 
-                     userAnswerLower.includes(correctAnswerLower) || 
-                     (userAnswerLower.length > 3 && correctAnswerLower.includes(userAnswerLower.substring(0, userAnswerLower.length - 1)));
+    const isCorrect = selectedAnswer === currentCard.answer;
     
     setFeedbackState(isCorrect ? 'correct' : 'incorrect');
     setIsAnswerVerified(true);
+    
+    // Apply time penalty/bonus
+    if (isCorrect) {
+      setTimeLeft(prev => prev + TIME_BONUS);
+      toast.success(`+${TIME_BONUS} секунды!`);
+    } else {
+      setTimeLeft(prev => Math.max(1, prev - TIME_PENALTY));
+      toast.error(`-${TIME_PENALTY} секунды!`);
+    }
   };
   
   const handleNextQuestion = () => {
@@ -93,23 +152,22 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
     
     // Переходим к следующей карточке или перемешиваем, если закончились
     if (currentCardIndex < marathonCards.length - 1) {
-      setCurrentCardIndex((prev) => prev + 1);
+      setCurrentCardIndex((prev) => {
+        const nextIndex = prev + 1;
+        generateAnswerOptions(marathonCards[nextIndex]);
+        return nextIndex;
+      });
     } else {
       // Перемешиваем карточки и начинаем заново
       const shuffled = [...cards].sort(() => Math.random() - 0.5);
       setMarathonCards(shuffled);
       setCurrentCardIndex(0);
+      generateAnswerOptions(shuffled[0]);
     }
     
-    setUserAnswer('');
+    setSelectedAnswer(null);
     setFeedbackState(null);
     setIsAnswerVerified(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !isAnswerVerified) {
-      verifyAnswer();
-    }
   };
 
   if (gameOver) {
@@ -157,6 +215,18 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
             <Timer size={24} className="text-physics-cyan" />
             <span className="text-xl font-semibold">{INITIAL_TIME} секунд</span>
           </div>
+
+          <div className="mb-6 space-y-3 text-left border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <p className="text-sm font-medium text-gray-700">Правила:</p>
+            <div className="flex items-start gap-2">
+              <Check size={18} className="text-green-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-gray-600">Правильный ответ: +{TIME_BONUS} секунды</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <X size={18} className="text-red-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-gray-600">Неправильный ответ: -{TIME_PENALTY} секунды</p>
+            </div>
+          </div>
           
           <button
             onClick={startGame}
@@ -187,37 +257,46 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
               </div>
             )}
             
-            <div className="mt-6">
-              <div className="relative">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={userAnswer}
-                  onChange={(e) => setUserAnswer(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                    isAnswerVerified && feedbackState === 'correct' 
-                      ? 'bg-[#F2FCE2] border-green-400 focus:ring-green-400' 
-                      : isAnswerVerified && feedbackState === 'incorrect'
-                      ? 'bg-red-50 border-red-400 focus:ring-red-400'
-                      : 'border-gray-300 focus:ring-physics-indigo'
-                  }`}
-                  placeholder="Введите ответ..."
-                  disabled={isAnswerVerified}
-                />
-                {isAnswerVerified && feedbackState === 'correct' && (
-                  <Check size={20} className="absolute right-3 top-3 text-green-500" />
-                )}
-                {isAnswerVerified && feedbackState === 'incorrect' && (
-                  <X size={20} className="absolute right-3 top-3 text-[#ea384c]" />
-                )}
-              </div>
-              
-              {isAnswerVerified && feedbackState === 'incorrect' && (
-                <p className="text-sm text-[#ea384c] mt-2">
-                  Правильный ответ: <span className="font-semibold">{currentCard.answer}</span>
-                </p>
-              )}
+            <div className="mt-6 space-y-4">
+              <RadioGroup
+                value={selectedAnswer || ""}
+                onValueChange={handleAnswerChange}
+                disabled={isAnswerVerified}
+              >
+                {answerOptions.map((option, index) => (
+                  <div key={index} className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${
+                    isAnswerVerified && selectedAnswer === option.value && feedbackState === 'correct' 
+                      ? 'bg-[#F2FCE2] border border-green-400' 
+                      : isAnswerVerified && selectedAnswer === option.value && feedbackState === 'incorrect'
+                      ? 'bg-red-50 border border-red-400'
+                      : isAnswerVerified && option.value === currentCard.answer
+                      ? 'bg-[#F2FCE2] border border-green-400'
+                      : 'hover:bg-gray-50'
+                  }`}>
+                    <RadioGroupItem
+                      value={option.value}
+                      id={`option-${index}`}
+                      className="border-2 border-physics-purple/50"
+                      disabled={isAnswerVerified}
+                    />
+                    <Label
+                      htmlFor={`option-${index}`}
+                      className={`text-lg font-medium cursor-pointer flex-grow ${option.isFormula ? 'font-mono' : ''}`}
+                    >
+                      {option.label}
+                    </Label>
+                    
+                    {isAnswerVerified && ((selectedAnswer === option.value && feedbackState === 'correct') || 
+                    (option.value === currentCard.answer && selectedAnswer !== option.value)) && (
+                      <Check size={20} className="text-green-500 shrink-0" />
+                    )}
+                    
+                    {isAnswerVerified && selectedAnswer === option.value && feedbackState === 'incorrect' && (
+                      <X size={20} className="text-[#ea384c] shrink-0" />
+                    )}
+                  </div>
+                ))}
+              </RadioGroup>
             </div>
             
             <button
@@ -226,7 +305,7 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
                 isAnswerVerified && feedbackState === 'correct' ? 'bg-green-500' : 
                 isAnswerVerified && feedbackState === 'incorrect' ? 'bg-[#ea384c]' : 'bg-physics-cyan hover:bg-physics-blue'
               }`}
-              disabled={!userAnswer.trim() && !isAnswerVerified}
+              disabled={!selectedAnswer && !isAnswerVerified}
             >
               {isAnswerVerified ? "Следующий вопрос" : "Проверить"}
             </button>
