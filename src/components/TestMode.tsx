@@ -12,6 +12,7 @@ interface TestModeProps {
 interface AnswerOption {
   value: string;
   label: string;
+  isFormula?: boolean;
 }
 
 const TestMode = ({ cards }: TestModeProps) => {
@@ -29,24 +30,40 @@ const TestMode = ({ cards }: TestModeProps) => {
     setShowResults(false);
     setCurrentQuestionIndex(0);
     setScore(0);
-    generateAnswerOptions(shuffled[0]);
+    if (shuffled.length > 0) {
+      generateAnswerOptions(shuffled[0]);
+    }
   }, [cards]);
 
+  const isFormulaAnswer = (answer: string): boolean => {
+    // Check if the answer contains mathematical symbols or notation
+    return /[\+\-\*\/\=\(\)\[\]\{\}\^\d√∫∑π]/.test(answer) && 
+           (/[a-zA-Z]/.test(answer) || answer.includes('=')) &&
+           (answer.includes('=') || answer.includes('/') || answer.includes('^') || answer.includes('√'));
+  };
+
   const generateAnswerOptions = (currentCard: FlashCardData) => {
-    // Получаем 3 случайные неправильные ответа из других карточек
+    // Determine if the correct answer is a formula
+    const isFormula = isFormulaAnswer(currentCard.answer);
+    
+    // Get 3 random incorrect answers from other cards
     const otherAnswers = cards
       .filter(card => card.id !== currentCard.id)
       .sort(() => Math.random() - 0.5)
       .slice(0, 3)
-      .map(card => card.answer);
+      .map(card => ({
+        value: card.answer,
+        label: card.answer,
+        isFormula: isFormulaAnswer(card.answer)
+      }));
 
-    // Создаем массив вариантов ответов, включая правильный
+    // Create array of options including the correct one
     const options = [
-      { value: currentCard.answer, label: currentCard.answer },
-      ...otherAnswers.map(answer => ({ value: answer, label: answer }))
+      { value: currentCard.answer, label: currentCard.answer, isFormula },
+      ...otherAnswers
     ];
 
-    // Перемешиваем варианты ответов
+    // Shuffle options
     setAnswerOptions(options.sort(() => Math.random() - 0.5));
   };
 
@@ -114,7 +131,7 @@ const TestMode = ({ cards }: TestModeProps) => {
           
           <p className="text-center mb-8 text-muted-foreground">
             {percentage >= 80 
-              ? 'Отличный результат! Вы отлично понимаете основы волн.' 
+              ? 'Отличный результат! Вы отлично понимаете предмет.' 
               : percentage >= 60 
               ? 'Хороший результат! Но есть над чем поработать.' 
               : 'Стоит повторить материал и попробовать еще раз.'}
@@ -134,6 +151,10 @@ const TestMode = ({ cards }: TestModeProps) => {
   }
 
   const currentCard = testCards[currentQuestionIndex];
+  
+  if (!currentCard) {
+    return <div className="text-center">Загрузка вопросов...</div>;
+  }
   
   return (
     <div className="container mx-auto max-w-2xl px-4">
@@ -166,7 +187,7 @@ const TestMode = ({ cards }: TestModeProps) => {
                 />
                 <Label
                   htmlFor={`option-${index}`}
-                  className="text-lg font-medium cursor-pointer"
+                  className={`text-lg font-medium cursor-pointer ${option.isFormula ? 'font-mono' : ''}`}
                 >
                   {option.label}
                 </Label>
