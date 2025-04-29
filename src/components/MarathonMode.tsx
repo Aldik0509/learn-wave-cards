@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { FlashCardData } from './FlashCard';
-import { Timer, Star, Trophy } from 'lucide-react';
+import { Timer, Star, Trophy, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MarathonModeProps {
@@ -18,6 +18,7 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
   const [timeLeft, setTimeLeft] = useState(INITIAL_TIME);
   const [isPlaying, setIsPlaying] = useState(false);
   const [gameOver, setGameOver] = useState(false);
+  const [feedbackState, setFeedbackState] = useState<'correct' | 'incorrect' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
     setTimeLeft(INITIAL_TIME);
     setIsPlaying(false);
     setGameOver(false);
+    setFeedbackState(null);
   };
 
   const startGame = () => {
@@ -74,26 +76,31 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
     const correctAnswerLower = currentCard.answer.toLowerCase();
 
     // Проверяем ответ (с некоторой гибкостью)
-    if (correctAnswerLower.includes(userAnswerLower) || 
-        userAnswerLower.includes(correctAnswerLower) || 
-        (userAnswerLower.length > 3 && correctAnswerLower.includes(userAnswerLower.substring(0, userAnswerLower.length - 1)))) {
-      setScore((prev) => prev + 1);
-      toast.success("Правильно! +1 очко");
-    } else {
-      toast.error(`Неверно! Правильный ответ: ${currentCard.answer}`);
-    }
-
-    // Переходим к следующей карточке или перемешиваем, если закончились
-    if (currentCardIndex < marathonCards.length - 1) {
-      setCurrentCardIndex((prev) => prev + 1);
-    } else {
-      // Перемешиваем карточки и начинаем заново
-      const shuffled = [...cards].sort(() => Math.random() - 0.5);
-      setMarathonCards(shuffled);
-      setCurrentCardIndex(0);
-    }
+    const isCorrect = correctAnswerLower.includes(userAnswerLower) || 
+                     userAnswerLower.includes(correctAnswerLower) || 
+                     (userAnswerLower.length > 3 && correctAnswerLower.includes(userAnswerLower.substring(0, userAnswerLower.length - 1)));
     
-    setUserAnswer('');
+    setFeedbackState(isCorrect ? 'correct' : 'incorrect');
+    
+    // Задержка перед переходом к следующей карточке для отображения обратной связи
+    setTimeout(() => {
+      if (isCorrect) {
+        setScore((prev) => prev + 1);
+      }
+  
+      // Переходим к следующей карточке или перемешиваем, если закончились
+      if (currentCardIndex < marathonCards.length - 1) {
+        setCurrentCardIndex((prev) => prev + 1);
+      } else {
+        // Перемешиваем карточки и начинаем заново
+        const shuffled = [...cards].sort(() => Math.random() - 0.5);
+        setMarathonCards(shuffled);
+        setCurrentCardIndex(0);
+      }
+      
+      setUserAnswer('');
+      setFeedbackState(null);
+    }, 1000);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -178,23 +185,48 @@ const MarathonMode = ({ cards }: MarathonModeProps) => {
             )}
             
             <div className="mt-6">
-              <input
-                ref={inputRef}
-                type="text"
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-physics-indigo"
-                placeholder="Введите ответ..."
-              />
+              <div className="relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                    feedbackState === 'correct' 
+                      ? 'bg-[#F2FCE2] border-green-400 focus:ring-green-400' 
+                      : feedbackState === 'incorrect'
+                      ? 'bg-red-50 border-red-400 focus:ring-red-400'
+                      : 'border-gray-300 focus:ring-physics-indigo'
+                  }`}
+                  placeholder="Введите ответ..."
+                  disabled={feedbackState !== null}
+                />
+                {feedbackState === 'correct' && (
+                  <Check size={20} className="absolute right-3 top-3 text-green-500" />
+                )}
+                {feedbackState === 'incorrect' && (
+                  <X size={20} className="absolute right-3 top-3 text-[#ea384c]" />
+                )}
+              </div>
+              
+              {feedbackState === 'incorrect' && (
+                <p className="text-sm text-[#ea384c] mt-2">
+                  Правильный ответ: <span className="font-semibold">{currentCard.answer}</span>
+                </p>
+              )}
             </div>
             
             <button
               onClick={checkAnswer}
-              className="w-full mt-4 py-3 bg-physics-cyan text-white rounded-md hover:bg-physics-blue transition-colors"
-              disabled={!userAnswer.trim()}
+              className={`w-full mt-4 py-3 text-white rounded-md hover:opacity-90 transition-colors ${
+                feedbackState === 'correct' ? 'bg-green-500' : 
+                feedbackState === 'incorrect' ? 'bg-[#ea384c]' : 'bg-physics-cyan hover:bg-physics-blue'
+              }`}
+              disabled={!userAnswer.trim() || feedbackState !== null}
             >
-              Ответить
+              {feedbackState === null ? "Ответить" : 
+               feedbackState === 'correct' ? "Правильно!" : "Неправильно"}
             </button>
           </div>
         </div>

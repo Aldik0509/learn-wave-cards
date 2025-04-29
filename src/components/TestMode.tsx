@@ -4,6 +4,7 @@ import { FlashCardData } from './FlashCard';
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
+import { Check, X } from 'lucide-react';
 
 interface TestModeProps {
   cards: FlashCardData[];
@@ -22,7 +23,9 @@ const TestMode = ({ cards }: TestModeProps) => {
   const [score, setScore] = useState(0);
   const [testCards, setTestCards] = useState<FlashCardData[]>([]);
   const [answerOptions, setAnswerOptions] = useState<AnswerOption[]>([]);
-
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [feedbackState, setFeedbackState] = useState<'correct' | 'incorrect' | null>(null);
+  
   useEffect(() => {
     const shuffled = [...cards].sort(() => Math.random() - 0.5);
     setTestCards(shuffled);
@@ -30,6 +33,8 @@ const TestMode = ({ cards }: TestModeProps) => {
     setShowResults(false);
     setCurrentQuestionIndex(0);
     setScore(0);
+    setSelectedAnswer(null);
+    setFeedbackState(null);
     if (shuffled.length > 0) {
       generateAnswerOptions(shuffled[0]);
     }
@@ -68,25 +73,43 @@ const TestMode = ({ cards }: TestModeProps) => {
   };
 
   const handleAnswerChange = (value: string) => {
-    const newAnswers = [...userAnswers];
-    newAnswers[currentQuestionIndex] = value;
-    setUserAnswers(newAnswers);
+    setSelectedAnswer(value);
+    
+    // Check if answer is correct
+    const currentCard = testCards[currentQuestionIndex];
+    if (value === currentCard.answer) {
+      setFeedbackState('correct');
+    } else {
+      setFeedbackState('incorrect');
+    }
   };
 
   const handleSubmitAnswer = () => {
-    if (!userAnswers[currentQuestionIndex]) {
+    if (!selectedAnswer) {
       toast.error('Пожалуйста, выберите ответ');
       return;
     }
 
+    // Save the answer
+    const newAnswers = [...userAnswers];
+    newAnswers[currentQuestionIndex] = selectedAnswer;
+    setUserAnswers(newAnswers);
+    
+    // Update score if answer was correct
+    if (feedbackState === 'correct') {
+      setScore(prev => prev + 1);
+    }
+
+    // Move to next question
     if (currentQuestionIndex < testCards.length - 1) {
       setCurrentQuestionIndex(prev => {
         const nextIndex = prev + 1;
         generateAnswerOptions(testCards[nextIndex]);
         return nextIndex;
       });
+      setSelectedAnswer(null);
+      setFeedbackState(null);
     } else {
-      calculateScore();
       setShowResults(true);
     }
   };
@@ -108,6 +131,8 @@ const TestMode = ({ cards }: TestModeProps) => {
     setShowResults(false);
     setCurrentQuestionIndex(0);
     setScore(0);
+    setSelectedAnswer(null);
+    setFeedbackState(null);
     generateAnswerOptions(shuffled[0]);
   };
 
@@ -175,11 +200,17 @@ const TestMode = ({ cards }: TestModeProps) => {
         
         <div className="mt-6 space-y-4">
           <RadioGroup
-            value={userAnswers[currentQuestionIndex]}
+            value={selectedAnswer || ""}
             onValueChange={handleAnswerChange}
           >
             {answerOptions.map((option, index) => (
-              <div key={index} className="flex items-center space-x-2">
+              <div key={index} className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${
+                selectedAnswer === option.value && feedbackState === 'correct' 
+                  ? 'bg-[#F2FCE2] border border-green-400' 
+                  : selectedAnswer === option.value && feedbackState === 'incorrect'
+                  ? 'bg-red-50 border border-red-400'
+                  : 'hover:bg-gray-50'
+              }`}>
                 <RadioGroupItem
                   value={option.value}
                   id={`option-${index}`}
@@ -187,10 +218,18 @@ const TestMode = ({ cards }: TestModeProps) => {
                 />
                 <Label
                   htmlFor={`option-${index}`}
-                  className={`text-lg font-medium cursor-pointer ${option.isFormula ? 'font-mono' : ''}`}
+                  className={`text-lg font-medium cursor-pointer flex-grow ${option.isFormula ? 'font-mono' : ''}`}
                 >
                   {option.label}
                 </Label>
+                
+                {selectedAnswer === option.value && feedbackState === 'correct' && (
+                  <Check size={20} className="text-green-500 shrink-0" />
+                )}
+                
+                {selectedAnswer === option.value && feedbackState === 'incorrect' && (
+                  <X size={20} className="text-[#ea384c] shrink-0" />
+                )}
               </div>
             ))}
           </RadioGroup>
@@ -198,7 +237,10 @@ const TestMode = ({ cards }: TestModeProps) => {
         
         <button
           onClick={handleSubmitAnswer}
-          className="w-full mt-6 py-3 bg-physics-purple text-white rounded-md hover:bg-physics-indigo transition-colors"
+          className={`w-full mt-6 py-3 text-white rounded-md hover:bg-physics-indigo transition-colors ${
+            feedbackState === 'correct' ? 'bg-green-500' : 
+            feedbackState === 'incorrect' ? 'bg-[#ea384c]' : 'bg-physics-purple'
+          }`}
         >
           {currentQuestionIndex < testCards.length - 1 ? "Следующий вопрос" : "Завершить тест"}
         </button>
