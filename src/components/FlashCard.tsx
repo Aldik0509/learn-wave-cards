@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -36,17 +37,17 @@ const FlashCard = ({ card, className }: FlashCardProps) => {
             <h3 className="text-xl font-semibold text-center text-gray-800">{card.question}</h3>
             {card.image && (
               <div className="mt-3">
-                <img src={card.image} alt="Иллюстрация" className="max-h-24 object-contain" />
+                <img src={card.image} alt="Illustration" className="max-h-24 object-contain" />
               </div>
             )}
-            <p className="mt-4 text-sm text-gray-500">Нажмите, чтобы увидеть ответ</p>
+            <p className="mt-4 text-sm text-gray-500">Click to see the answer</p>
           </div>
         </div>
         <div className="flip-card-back bg-gradient-to-br from-physics-indigo to-physics-purple rounded-xl p-6 text-white">
           <div className="flex flex-col items-center justify-center h-full">
-            <h3 className="text-xl font-semibold mb-3">Ответ:</h3>
+            <h3 className="text-xl font-semibold mb-3">Answer:</h3>
             <p className="text-center text-lg">{card.answer}</p>
-            <p className="mt-4 text-sm text-white/70">Нажмите, чтобы вернуться к вопросу</p>
+            <p className="mt-4 text-sm text-white/70">Click to return to the question</p>
           </div>
         </div>
       </div>

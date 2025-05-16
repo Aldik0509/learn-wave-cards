@@ -24,7 +24,7 @@ const LearnMode = ({ cards }: LearnModeProps) => {
     <div className="container mx-auto max-w-4xl px-4">
       <div className="flex justify-between items-center mb-6">
         <p className="text-sm text-gray-500">
-          Карточка {currentCardIndex + 1} из {cards.length}
+          Card {currentCardIndex + 1} of {cards.length}
         </p>
       </div>
 
