@@ -1,11 +1,11 @@
 
 import { useState } from 'react';
-import { Timer } from 'lucide-react';
+import { Timer, Puzzle } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface HeaderProps {
-  onModeChange: (mode: 'learn' | 'test' | 'marathon') => void;
-  currentMode: 'learn' | 'test' | 'marathon';
+  onModeChange: (mode: 'learn' | 'test' | 'marathon' | 'matching') => void;
+  currentMode: 'learn' | 'test' | 'marathon' | 'matching';
   onSubjectChange: (subject: 'physics' | 'algebra' | 'geometry') => void;
   currentSubject: 'physics' | 'algebra' | 'geometry';
 }
@@ -15,24 +15,24 @@ const Header = ({ onModeChange, currentMode, onSubjectChange, currentSubject }: 
     <header className="pt-6 pb-4 mb-8">
       <div className="container mx-auto">
         <h1 className="text-4xl md:text-5xl font-bold text-center mb-2 text-gradient">
-          {currentSubject === 'physics' && 'Физика: Основы волн'}
-          {currentSubject === 'algebra' && 'Алгебра: Основные понятия'}
-          {currentSubject === 'geometry' && 'Геометрия: Ключевые фигуры'}
+          {currentSubject === 'physics' && 'Physics: Wave Fundamentals'}
+          {currentSubject === 'algebra' && 'Algebra: Core Concepts'}
+          {currentSubject === 'geometry' && 'Geometry: Key Figures'}
         </h1>
         <p className="text-center text-gray-600 mb-6 max-w-2xl mx-auto">
-          Интерактивные карточки для учеников 7-11 классов
+          Interactive flashcards for students in grades 7-11
         </p>
         
         <div className="flex justify-center mb-6">
           <ToggleGroup type="single" value={currentSubject} onValueChange={(value) => value && onSubjectChange(value as 'physics' | 'algebra' | 'geometry')}>
             <ToggleGroupItem value="physics" className={`px-4 py-2 ${currentSubject === 'physics' ? 'bg-physics-indigo text-white' : 'bg-white/80'}`}>
-              Физика
+              Physics
             </ToggleGroupItem>
             <ToggleGroupItem value="algebra" className={`px-4 py-2 ${currentSubject === 'algebra' ? 'bg-physics-purple text-white' : 'bg-white/80'}`}>
-              Алгебра
+              Algebra
             </ToggleGroupItem>
             <ToggleGroupItem value="geometry" className={`px-4 py-2 ${currentSubject === 'geometry' ? 'bg-physics-cyan text-white' : 'bg-white/80'}`}>
-              Геометрия
+              Geometry
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
@@ -46,7 +46,7 @@ const Header = ({ onModeChange, currentMode, onSubjectChange, currentSubject }: 
                 : 'bg-white/80 text-gray-700 hover:bg-gray-100'
             }`}
           >
-            Изучение
+            Learn
           </button>
           <button
             onClick={() => onModeChange('test')}
@@ -56,7 +56,7 @@ const Header = ({ onModeChange, currentMode, onSubjectChange, currentSubject }: 
                 : 'bg-white/80 text-gray-700 hover:bg-gray-100'
             }`}
           >
-            Тест
+            Test
           </button>
           <button
             onClick={() => onModeChange('marathon')}
@@ -67,7 +67,18 @@ const Header = ({ onModeChange, currentMode, onSubjectChange, currentSubject }: 
             }`}
           >
             <Timer size={16} />
-            <span>Марафон</span>
+            <span>Marathon</span>
+          </button>
+          <button
+            onClick={() => onModeChange('matching')}
+            className={`px-4 py-2 rounded-full text-sm md:text-base transition-all flex items-center gap-1 ${
+              currentMode === 'matching'
+                ? 'bg-physics-indigo/80 text-white shadow-lg'
+                : 'bg-white/80 text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Puzzle size={16} />
+            <span>Matching</span>
           </button>
         </div>
       </div>
